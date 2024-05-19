@@ -18,7 +18,7 @@
 | LOL_match_300_100K(win_rate)   | 0.2923             | 0.2292            | 0.8122             |
 | LOL_match_2000_400K(win_rate)  | 0.3058             | 0.2398            | 0.8134             |
 | LOL_match_7000_1M(win_rate)    | 0.3172             | 0.2485            | 0.8213             |
-| LOL_match_50000_2M(win_rate)   |                    |                   |                    |
+| LOL_match_50000_2M(win_rate)   | 0.3391             | 0.2609            | 0.8354             |
 | LOL_match_300_100K(pick_rate)  | 0.0653             | 0.0319            | 0.593              |
 | LOL_match_2000_400K(pick_rate) | 0.0807             | 0.0363            | 0.6802             |
 | LOL_match_7000_1M(pick_rate)   | 0.0942             | 0.0412            | 0.728              |
