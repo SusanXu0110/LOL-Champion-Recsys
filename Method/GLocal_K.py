@@ -12,8 +12,6 @@ import numpy as np
 import h5py
 import pandas as pd
 
-
-
 # # Data Loader Function
 def load_data_LOL(path):
     df = pd.read_csv(path + 'summoner_champion_stats_numeric_2000_400K.csv')
@@ -25,7 +23,7 @@ def load_data_LOL(path):
     n_m = np.unique(total[:,1]).size
 
     np.random.shuffle(total)
-    split_index = int(0.8 * total.shape[0])  # 4:1 的比例
+    split_index = int(0.8 * total.shape[0])  # 4:1
 
     train = total[:split_index]
     test = total[split_index:]
