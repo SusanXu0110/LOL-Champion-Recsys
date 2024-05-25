@@ -15,48 +15,60 @@ import pandas as pd
 
 # # Data Loader Function
 def load_data_LOL(path):
-    df = pd.read_csv(path + 'summoner_champion_stats_numeric_.csv')
+    df = pd.read_csv(path + 'summoner_champion_stats_numeric_7000_with_game_count.csv')
     total = df.values
     # print(total)
     unique_users = np.unique(total[:, 0])
-    unique_songs = np.unique(total[:, 1])
+    unique_champions = np.unique(total[:, 1])
     n_u = np.unique(total[:,0]).size
     n_m = np.unique(total[:,1]).size
 
     np.random.shuffle(total)
-    split_index = int(0.8 * total.shape[0])  # 4:1 的比例
+    split_index = int(0.8 * total.shape[0])
 
     train = total[:split_index]
+    filtered_train = train[train[:, 3] >= 10]
     test = total[split_index:]
     n_train = train.shape[0]  # num of training ratings
     n_test = test.shape[0]  # num of test ratings
+    n_train_filtered = filtered_train.shape[0]
 
     user_id_map = {user_id: idx for idx, user_id in enumerate(unique_users)}
-    song_id_map = {song_id: idx for idx, song_id in enumerate(unique_songs)}
+    champion_id_map = {song_id: idx for idx, song_id in enumerate(unique_champions)}
 
     train_r = np.zeros((n_m, n_u), dtype='float32')
     test_r = np.zeros((n_m, n_u), dtype='float32')
+    train_r_filtered = np.zeros((n_m, n_u), dtype='float32')
     num_0_train=0
     num_0_test=0
 
     for i in range(n_train):
         user_idx = user_id_map[train[i, 0]]
-        song_idx = song_id_map[train[i, 1]]
+        champion_idx = champion_id_map[train[i, 1]]
         if train[i, 2] == 0:
             train[i, 2]+=1e-8
             num_0_train+=1
-        train_r[song_idx, user_idx] = train[i, 3]
+        train_r[champion_idx, user_idx] = train[i, 2]
+
+    for i in range(n_train_filtered):
+        user_idx = user_id_map[filtered_train[i, 0]]
+        champion_idx = champion_id_map[filtered_train[i, 1]]
+        if filtered_train[i, 2] == 0:
+            filtered_train[i, 2]+=1e-8
+            num_0_train+=1
+        train_r_filtered[champion_idx, user_idx] = filtered_train[i, 2]
 
     for i in range(n_test):
         user_idx = user_id_map[test[i, 0]]
-        song_idx = song_id_map[test[i, 1]]
+        champion_idx = champion_id_map[test[i, 1]]
         if test[i, 2] == 0:
             test[i, 2]+=1e-8
             num_0_test+=1
-        test_r[song_idx, user_idx] = test[i, 3]
+        test_r[champion_idx, user_idx] = test[i, 2]
 
     train_m = np.greater(train_r, 1e-12).astype('float32')  # masks indicating non-zero entries
     test_m = np.greater(test_r, 1e-12).astype('float32')
+    train_r_filtered = np.greater(train_r_filtered, 1e-12).astype('float32')
     print(num_0_train,num_0_test)
     print('data matrix loaded')
     print('num of users: {}'.format(n_u))
@@ -64,71 +76,49 @@ def load_data_LOL(path):
     print('num of training ratings: {}'.format(n_train))
     print('num of test ratings: {}'.format(n_test))
 
-    return n_m, n_u, train_r, train_m, test_r, test_m
+    train_weighted = get_game_counts_weighted(n_m,n_u,n_train,train,unique_users,unique_champions)
+
+    # train_r_noisy = add_noise(train_r)
+
+    return n_m, n_u, train_r, train_m, test_r, test_m, train_weighted,train_r_filtered
+
+def add_noise(data, noise_factor=0.2):
+    noisy_data = data + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=data.shape)
+    noisy_data = np.clip(noisy_data, 0., 1.)
+    return noisy_data.astype(np.float32)
 
 
-def load_data_LOL_game(path, metric='play_time'):
-    # 读取 CSV 文件
-    df = pd.read_csv(path + 'summoner_champion_stats_numeric_2000_with_game_count.csv')
-    total = df.values
-    
-    # 获取唯一的召唤师 ID 和英雄 ID
-    unique_users = np.unique(total[:, 0])
-    unique_champions = np.unique(total[:, 1])
-    
-    n_u = unique_users.size
-    n_m = unique_champions.size
-    
-    # 将数据打乱并分割为训练集和测试集
-    np.random.shuffle(total)
-    split_index = int(0.8 * total.shape[0])
-    
-    train = total[:split_index]
-    test = total[split_index:]
-    
-    n_train = train.shape[0]
-    n_test = test.shape[0]
-    
-    # 创建用户 ID 和英雄 ID 的映射
+def get_game_counts_weighted(n_m,n_u,n_train,train,unique_users,unique_champions):
     user_id_map = {user_id: idx for idx, user_id in enumerate(unique_users)}
     champion_id_map = {champion_id: idx for idx, champion_id in enumerate(unique_champions)}
     
-    # 创建矩阵
     train_r = np.zeros((n_m, n_u), dtype='float32')
-    test_r = np.zeros((n_m, n_u), dtype='float32')
-    
-    # 根据选择的指标填充矩阵
-    metric_index = {'win_rate': 2, 'play_rate': 3, 'play_time': 4}[metric]
+    # test_r = np.zeros((n_m, n_u), dtype='float32')
     
     for i in range(n_train):
         user_idx = user_id_map[train[i, 0]]
         champion_idx = champion_id_map[train[i, 1]]
-        train_r[champion_idx, user_idx] = train[i, metric_index]
+        train_r[champion_idx, user_idx] = train[i, 4]
     
-    for i in range(n_test):
-        user_idx = user_id_map[test[i, 0]]
-        champion_idx = champion_id_map[test[i, 1]]
-        test_r[champion_idx, user_idx] = test[i, metric_index]
+    # for i in range(n_test):
+    #     user_idx = user_id_map[test[i, 0]]
+    #     champion_idx = champion_id_map[test[i, 1]]
+    #     test_r[champion_idx, user_idx] = test[i, 4]
     
-    # 对 play_time 进行归一化处理
-    if metric == 'play_time':
-        train_r = normalize_play_time(train_r)
-        test_r = normalize_play_time(test_r)
+    train_r = normalize_play_time(train_r,n_u)
+    # test_r = normalize_play_time(test_r)
     
-    train_m = (train_r > 0).astype('float32')
-    test_m = (test_r > 0).astype('float32')
+    # print('Data matrix loaded')
+    # print('Number of users: {}'.format(n_u))
+    # print('Number of champions: {}'.format(n_m))
+    # print('Number of training ratings: {}'.format(n_train))
+    # print('Number of test ratings: {}'.format(n_test))
     
-    print('Data matrix loaded')
-    print('Number of users: {}'.format(n_u))
-    print('Number of champions: {}'.format(n_m))
-    print('Number of training ratings: {}'.format(n_train))
-    print('Number of test ratings: {}'.format(n_test))
-    
-    return n_m, n_u, train_r, train_m, test_r, test_m
+    return train_r
 
-def normalize_play_time(matrix):
+def normalize_play_time(matrix,n_u):
     row_sums = matrix.sum(axis=1)
-    normalized_matrix = matrix / row_sums[:, np.newaxis]
+    normalized_matrix = matrix / row_sums[:, np.newaxis] * n_u
     return normalized_matrix
 
 def load_data_yahoo_music(path):
@@ -190,7 +180,7 @@ def load_data_msd(path):
     unique_songs = np.unique(total[:, 1])
 
     np.random.shuffle(total)
-    split_index = int(0.8 * total.shape[0])  # 4:1 的比例
+    split_index = int(0.8 * total.shape[0])
 
     train = total[:split_index]
     test = total[split_index:]
@@ -388,8 +378,8 @@ try:
         n_m, n_u, train_r, train_m, test_r, test_m = load_data_yahoo_music(path)
     elif dataset=='LOL':
         path = data_path + '/LOL_match/'
-        n_m, n_u, train_r, train_m, test_r, test_m = load_data_LOL(path)
-        n_m_2, n_u_2, train_r_2, train_m_2, test_r_2, test_m_2 = load_data_LOL_game(path)
+        n_m, n_u, train_r, train_m, test_r, test_m ,train_r_2, train_r_filtered= load_data_LOL(path)
+        # n_m_2, n_u_2, train_r_2, train_m_2, test_r_2, test_m_2 = load_data_LOL_game(path)
     else:
         raise ValueError
 
@@ -451,13 +441,13 @@ elif dataset == 'yahoomusic':
     epoch_f = 60
     dot_scale = 1  # scaled dot product
 elif dataset == 'LOL':
-    lambda_2 = 20.  # l2 regularisation
-    lambda_s = 0.006
-    iter_p = 5  # optimisation
-    iter_f = 5
-    epoch_p = 30  # training epoch
-    epoch_f = 60
-    dot_scale = 1  # scaled dot product
+    lambda_2 = 70.
+    lambda_s = 0.018
+    iter_p = 50
+    iter_f = 10
+    epoch_p = 20
+    epoch_f = 30
+    dot_scale = 0.5
 
 
 R = tf.placeholder("float", [n_m, n_u])
@@ -548,8 +538,9 @@ for i in range(n_layers):
 
 y_dash, _ = kernel_layer(y, n_u, activation=tf.identity, name='out')
 
-y_dash_2 = y_dash * train_r_2
-gk = global_kernel(y_dash_2, gk_size, dot_scale)  # Global kernel
+# y_dash = y_dash * train_r_2
+gk = global_kernel(y_dash, gk_size, dot_scale)  # Global kernel
+
 y_hat = global_conv(train_r, gk)  # Global kernel-based rating matrix
 
 for i in range(n_layers):
@@ -618,8 +609,8 @@ with tf.Session() as sess:
     sess.run(init)
     for i in range(epoch_p):
         tic = time()
-        optimizer_p.minimize(sess, feed_dict={R: train_r})
-        pre = sess.run(pred_p, feed_dict={R: train_r})
+        optimizer_p.minimize(sess, feed_dict={R: train_r_filtered})
+        pre = sess.run(pred_p, feed_dict={R: train_r_filtered})
 
         t = time() - tic
         time_cumulative += t
@@ -630,15 +621,19 @@ with tf.Session() as sess:
         error_train = (train_m * (np.clip(pre, 0., 1.) - train_r) ** 2).sum() / train_m.sum()  # train error
         train_rmse = np.sqrt(error_train)
 
+        test_ndcg = call_ndcg(np.clip(pre, 0., 1.), test_r)
+        train_ndcg = call_ndcg(np.clip(pre, 0., 1.), train_r)
+
         print('.-^-._' * 12)
         print('PRE-TRAINING')
-        print('Epoch:', i+1, 'test rmse:', test_rmse, 'train rmse:', train_rmse)
+        print('Epoch:', i+1, 'test rmse:', test_rmse, 'train rmse:', train_rmse,'test ndcg:',test_ndcg,'train ndcg:',train_ndcg)
         print('Time:', t, 'seconds')
         print('Time cumulative:', time_cumulative, 'seconds')
         print('.-^-._' * 12)
 
     for i in range(epoch_f):
         tic = time()
+        # train_r=add_noise(train_r)
         optimizer_f.minimize(sess, feed_dict={R: train_r})
         pre = sess.run(pred_f, feed_dict={R: train_r})
 
