@@ -42,15 +42,6 @@ def load_data_LOL(path):
     num_0_train=0
     num_0_test=0
 
-    # data used in fine-tuning
-    for i in range(n_train):
-        user_idx = user_id_map[train[i, 0]]
-        champion_idx = champion_id_map[train[i, 1]]
-        # if train[i, 2] == 0:
-        #     train[i, 2]+=1e-8
-        #     num_0_train+=1
-        train_r[champion_idx, user_idx] = train[i, 2]
-
     # data used in pretraining
     for i in range(n_train_filtered):
         user_idx = user_id_map[filtered_train[i, 0]]
@@ -60,7 +51,16 @@ def load_data_LOL(path):
             num_0_train+=1
         train_r_filtered[champion_idx, user_idx] = filtered_train[i, 2]
 
-    #test data
+    # data used in fine-tuning
+    for i in range(n_train):
+        user_idx = user_id_map[train[i, 0]]
+        champion_idx = champion_id_map[train[i, 1]]
+        # if train[i, 2] == 0:
+        #     train[i, 2]+=1e-8
+        #     num_0_train+=1
+        train_r[champion_idx, user_idx] = train[i, 2]
+
+    # test data
     for i in range(n_test):
         user_idx = user_id_map[test[i, 0]]
         champion_idx = champion_id_map[test[i, 1]]
