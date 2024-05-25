@@ -71,7 +71,7 @@ def load_data_LOL(path):
 
     train_m = np.greater(train_r, 1e-12).astype('float32')  # masks indicating non-zero entries
     test_m = np.greater(test_r, 1e-12).astype('float32')
-    train_r_filtered = np.greater(train_r_filtered, 1e-12).astype('float32')
+    train_m_filtered = np.greater(train_r_filtered, 1e-12).astype('float32')
     print(num_0_train,num_0_test)
     print('data matrix loaded')
     print('num of users: {}'.format(n_u))
@@ -83,7 +83,7 @@ def load_data_LOL(path):
 
     # train_r_noisy = add_noise(train_r)
 
-    return n_m, n_u, train_r, train_m, test_r, test_m, train_weighted,train_r_filtered
+    return n_m, n_u, train_r, train_m, test_r, test_m, train_weighted,train_m_filtered, train_r_filtered
 
 def add_noise(data, noise_factor=0.2):
     noisy_data = data + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=data.shape)
@@ -381,7 +381,7 @@ try:
         n_m, n_u, train_r, train_m, test_r, test_m = load_data_yahoo_music(path)
     elif dataset=='LOL':
         path = data_path + '/LOL_match/'
-        n_m, n_u, train_r, train_m, test_r, test_m ,train_r_2, train_r_filtered= load_data_LOL(path)
+        n_m, n_u, train_r, train_m, test_r, test_m ,train_r_2, train_m_filtered, train_r_filtered= load_data_LOL(path)
         # n_m_2, n_u_2, train_r_2, train_m_2, test_r_2, test_m_2 = load_data_LOL_game(path)
     else:
         raise ValueError
@@ -525,7 +525,7 @@ pred_p, reg_loss = kernel_layer(y, n_u, activation=tf.identity, name='out')
 reg_losses = reg_losses + reg_loss
 
 # L2 loss
-diff = train_m * (train_r_filtered - pred_p)
+diff = train_m_filtered * (train_r_filtered - pred_p)
 sqE = tf.nn.l2_loss(diff)
 loss_p = sqE + reg_losses
 
